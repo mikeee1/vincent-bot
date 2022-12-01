@@ -1,4 +1,5 @@
 .env
 *.log
 data.json
+settings.json
 *.png
