@@ -7,7 +7,7 @@ import json
 from math import sqrt
 import time
 
-version = "5"
+version = "5.0.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -25,12 +25,15 @@ with open('settings.json') as file:
 
 print(data)
 
-test_guild_id = 1037308122265563176
+test_guild_id = 1013732206096699453
 cooldown_dict = {}
 
 def nround(number):
     """Round a float to the nearest integer."""
     return int(number + 0.5)
+
+def xp_formula(message_text):
+    return nround(sqrt(0.4*len(message_text)) - 1.45)
 
 # guilds = [discord.Object(id=1037308122265563176), discord.Object(id=1013732206096699453)]
 
@@ -131,11 +134,11 @@ class aclient(discord.Client):
             # return
             if guild_id_str in data:
                 if user_id_str in data[guild_id_str]:
-                    data[guild_id_str][user_id_str]["xp"] += nround(sqrt(len(message_text)) - 1.45)
+                    data[guild_id_str][user_id_str]["xp"] += xp_formula(message_text)
                 else:
-                    data[guild_id_str][user_id] = {"xp": nround(sqrt(len(message_text)) - 1.45)}
+                    data[guild_id_str][user_id] = {"xp": xp_formula(message_text)}
             else:
-                data[guild_id_str] = {user_id_str:{"xp": nround(sqrt(len(message_text)) - 1.45)}}
+                data[guild_id_str] = {user_id_str:{"xp": xp_formula(message_text)}}
             with open('data.json', "w") as file:
                 json.dump(data, file)
                 
@@ -151,7 +154,7 @@ tree = app_commands.CommandTree(client=client)
 
 @tree.command(name="about", description="Shows about page", guild = discord.Object(id=test_guild_id))
 async def self(interaction: discord.Interaction):
-    await interaction.response.send_message(f"This is the vincent bot, created to VINCENT\n\nVersion: {version}\nGithub: https://github.com/mikeee1/vincent-bot", ephemeral=True)
+    await interaction.response.send_message(f"This is the vincent bot, created to VINCENT\n\nVersion: {version}\nGithub: https://github.com/mikeee1/vincent-bot\nReport issues: <https://github.com/mikeee1/vincent-bot/issues>", ephemeral=True)
 
 @tree.command(name="xp", description="Shows the amount of xp you have", guild = discord.Object(id=test_guild_id))
 async def self(interaction: discord.Interaction):
@@ -188,7 +191,7 @@ async def self(interaction: discord.Interaction, set_get: str, amount: float):
 
 @tree.command(name="xpget", description="Shows the amount of xp someone has", guild = discord.Object(id=test_guild_id))
 async def self(interaction: discord.Interaction, user: discord.Member):
-    print(user)
+    # print(user)
     split_user = str(user).split("#")
     # print(f'Variable: {interaction.guild.id}, Type: {type(interaction.guild.id)}')
     guild_id = interaction.guild.id
@@ -210,6 +213,6 @@ async def self(interaction: discord.Interaction, user: discord.Member):
 @tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("no permissions", ephemeral=True)
+        await interaction.response.send_message("You don't have the required permission(s)", ephemeral=True)
 
 client.run(TOKEN)
