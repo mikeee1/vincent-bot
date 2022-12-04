@@ -6,6 +6,9 @@ import random
 import json
 from math import sqrt
 import time
+from PIL import Image, ImageFont, ImageDraw, ImageEnhance
+import requests
+import logging
 
 version = "5.0.0"
 
@@ -23,17 +26,88 @@ with open('settings.json') as file:
 #     with open('settings.json', "w") as file:
 #         json.dump(settings, file)
 
-print(data)
+# print(data)
 
-test_guild_id = 1013732206096699453
+test_guild_id = 1048917571270873109
 cooldown_dict = {}
 
-def nround(number):
+def nround(number: float | int) -> int:
     """Round a float to the nearest integer."""
     return int(number + 0.5)
 
-def xp_formula(message_text):
+def xp_formula(message_text: str) -> int:
     return nround(sqrt(0.4*len(message_text)) - 1.45)
+
+def level_formula(xp: int) -> int:
+    return 0.002 * xp
+
+def level_formula_inverse(level: int) -> int:
+    return 500 * level
+
+def calculate_progress(guild_id: int, user_id: int) -> float:
+    try:
+        current_xp = data[guild_id][user_id]['xp']
+        current_level = data[guild_id][user_id]['level']
+    except KeyError:
+        current_xp = 0
+        current_level = 0
+    xp_next_level = level_formula_inverse(current_level+1)
+    xp_fraction = current_xp/xp_next_level
+    # print(xp_fraction)
+    return xp_fraction
+
+
+def drawProgressBar(d, x, y, w, h, progress, bg="gray", fg="green"):
+    # draw background
+    d.ellipse((x+w, y, x+h+w, y+h), fill=bg)
+    d.ellipse((x, y, x+h, y+h), fill=bg)
+    d.rectangle((x+(h/2), y, x+w+(h/2), y+h), fill=bg)
+
+    # draw progress bar
+    w *= progress
+    d.ellipse((x+w, y, x+h+w, y+h),fill=fg)
+    d.ellipse((x, y, x+h, y+h),fill=fg)
+    d.rectangle((x+(h/2), y, x+w+(h/2), y+h),fill=fg)
+
+    return d
+
+
+def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_name, file_name):
+    if user_avatar == None:
+        avatar_number = int(user_name_list[1]) % 5
+        avatar_url = f"https://cdn.discordapp.com/embed/avatars/{avatar_number}.png"
+    else:
+        avatar_url = str(user_avatar)
+    avatar = requests.get(avatar_url).content
+    # print(str(interaction.user.avatar).split("?")[0])
+    with open(user_id+".png", "wb") as file:
+        file.write(avatar)
+    xp_image = Image.new(mode="RGBA", size=(800, 200))
+    draw = ImageDraw.Draw(xp_image)
+    font_60 = ImageFont.truetype("arial.ttf", size=60)
+    font_40 = ImageFont.truetype("arial.ttf", size=40)
+    font_30 = ImageFont.truetype("arial.ttf", size=30)
+    draw.rounded_rectangle(xy=[0,0, 800,200], radius = 20, fill=(0,0,0,255))
+    avatar_image = Image.open(user_id+".png")
+    avatar_image = avatar_image.resize(size=(160,160))
+    xp_image.paste(avatar_image, (20,20))
+    # draw.rounded_rectangle(xy=[20,20, 180,180], radius=30, outline=(0,0,0,255), width=20)
+    try:
+        draw = drawProgressBar(d = draw, x = 200, y = 140, w = 520, h = 40, progress = calculate_progress(guild_id, user_id))
+        xp_text = f"{data[guild_id][user_id]['xp']}/{level_formula_inverse(data[guild_id][user_id]['level']+1)} XP"
+    except KeyError:
+        draw = drawProgressBar(d = draw, x = 200, y = 140, w = 520, h = 40, progress = 0)
+        xp_text = f"0/500 XP"
+    draw.text((215, 95), text=xp_text, fill="gray", font=font_40)
+    draw.text((215, 20), text=str(user_name), fill="gray", font=font_30)
+    draw.text((630, 105), text="Level", fill="gray", font=font_30)
+    try:
+        draw.text((705, 80), text=str(data[guild_id][user_id]['level']), fill="gray", font=font_60)
+    except KeyError:
+        draw.text((705, 80), text="0", fill="gray", font=font_60)
+    xp_image.save(file_name)
+    os.remove(str(user_id)+".png")
+
 
 # guilds = [discord.Object(id=1037308122265563176), discord.Object(id=1013732206096699453)]
 
@@ -70,6 +144,8 @@ class aclient(discord.Client):
         # print(list(message.guild.emojis))
         # print(guild_emojis_name_list)
         user = message.author
+        # print(user.avatar)
+
         user_id = user.id
         user_id_str = str(user_id)
         if user == client.user:
@@ -136,9 +212,16 @@ class aclient(discord.Client):
                 if user_id_str in data[guild_id_str]:
                     data[guild_id_str][user_id_str]["xp"] += xp_formula(message_text)
                 else:
-                    data[guild_id_str][user_id] = {"xp": xp_formula(message_text)}
+                    data[guild_id_str][user_id_str] = {"xp": xp_formula(message_text), "level": 0, "version": version}
             else:
-                data[guild_id_str] = {user_id_str:{"xp": xp_formula(message_text)}}
+                data[guild_id_str] = {user_id_str:{"xp": xp_formula(message_text), "level": 0, "version": version}}
+
+
+            level = data[guild_id_str][user_id_str]["level"]
+            xp = data[guild_id_str][user_id_str]["xp"]
+            if xp >= level_formula_inverse(level+1):
+                data[guild_id_str][user_id_str]["level"] += 1
+                await message.reply(f"congrats, <@{user_id_str}> just leveled up", file = discord.File('level_up.gif'))
             with open('data.json', "w") as file:
                 json.dump(data, file)
                 
@@ -162,9 +245,22 @@ async def self(interaction: discord.Interaction):
     # print(str(interaction.guild.id))
     # print(str(interaction.user.id))
     try:
-        await interaction.response.send_message(f"<@{str(interaction.user.id)}> has {data[str(interaction.guild.id)][str(interaction.user.id)]['xp']} xp")
-    except KeyError as e:
-        await interaction.response.send_message("Couldn't find your xp amount", ephemeral=True)
+        user_id = str(interaction.user.id)
+        user_name = client.get_user(interaction.user.id)
+        user_name_list = str(user_name).split("#")
+        # print(user_name_list)
+        guild_id = str(interaction.guild.id)
+        user_avatar = interaction.user.avatar
+        # print(type(interaction.user.avatar))
+        file_name = f"{guild_id}.png"
+        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
+        await interaction.response.send_message(file=discord.File(file_name))
+        os.remove(file_name)
+        # await interaction.response.send_message(f"<@{str(interaction.user.id)}> has {data[str(interaction.guild.id)][str(interaction.user.id)]['xp']} xp")
+        # await interaction.response.send_message(f"<@{str(interaction.user.id)}> is level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']}\n{data[str(interaction.guild.id)][str(interaction.user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1}")
+    except Exception as e:
+        print(e)
+        await interaction.response.send_message("Something went wrong", ephemeral=True)
 
 @tree.command(name="cooldown", description="cooldown commands", guild = discord.Object(id=test_guild_id))
 # @tree.command.default_permissions()
@@ -204,9 +300,22 @@ async def self(interaction: discord.Interaction, user: discord.Member):
     # print(data[str(interaction.guild.id)][str(user.id)])
     # print(data[str(interaction.guild.id)][str(user.id)]['xp'])
     try:
-        await interaction.response.send_message(f"{user} has {data[str(interaction.guild.id)][str(user.id)]['xp']} xp", ephemeral=True)
-    except KeyError as e:
-        await interaction.response.send_message(f"Couldn't find {user} xp amount", ephemeral=True)
+        user_id = str(user.id)
+        user_name = client.get_user(user.id)
+        user_name_list = str(user_name).split("#")
+        # print(user_name_list)
+        guild_id = str(interaction.guild.id)
+        user_avatar = user.avatar
+        # print(type(interaction.user.avatar))
+        file_name = f"{guild_id}.png"
+        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
+        await interaction.response.send_message(file=discord.File(file_name), ephemeral=True)
+        os.remove(file_name)
+        # await interaction.response.send_message(f"{user} has {data[str(interaction.guild.id)][str(user.id)]['xp']} xp", ephemeral=True)
+        # await interaction.response.send_message(f"{user} is level {data[str(interaction.guild.id)][str(user.id)]['level']}\n{data[str(interaction.guild.id)][str(user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(user.id)]['level']+1}", ephemeral=True)
+    except Exception as e:
+        print(e)
+        await interaction.response.send_message(f"Something went wrong", ephemeral=True)
 
 
 
