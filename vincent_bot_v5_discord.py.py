@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.0.0"
+version = "5.1.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
