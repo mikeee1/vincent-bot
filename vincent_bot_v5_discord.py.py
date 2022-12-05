@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.1.0"
+version = "5.1.1"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -28,7 +28,7 @@ with open('settings.json') as file:
 
 # print(data)
 
-test_guild_id = 1048917571270873109
+test_guild_id = 1013732206096699453
 cooldown_dict = {}
 
 def nround(number: float | int) -> int:
@@ -36,7 +36,7 @@ def nround(number: float | int) -> int:
     return int(number + 0.5)
 
 def xp_formula(message_text: str) -> int:
-    return nround(sqrt(0.4*len(message_text)) - 1.45)
+    return nround(sqrt(0.7*len(message_text)) - 1.45)
 
 def level_formula(xp: int) -> int:
     return 0.002 * xp
@@ -52,7 +52,8 @@ def calculate_progress(guild_id: int, user_id: int) -> float:
         current_xp = 0
         current_level = 0
     xp_next_level = level_formula_inverse(current_level+1)
-    xp_fraction = current_xp/xp_next_level
+    xp_current_level = level_formula_inverse(current_level)
+    xp_fraction = (current_xp-xp_current_level)/xp_next_level
     # print(xp_fraction)
     return xp_fraction
 
@@ -212,9 +213,9 @@ class aclient(discord.Client):
                 if user_id_str in data[guild_id_str]:
                     data[guild_id_str][user_id_str]["xp"] += xp_formula(message_text)
                 else:
-                    data[guild_id_str][user_id_str] = {"xp": xp_formula(message_text), "level": 0, "version": version}
+                    data[guild_id_str][user_id_str] = {"version": version, "xp": xp_formula(message_text), "level": 0}
             else:
-                data[guild_id_str] = {user_id_str:{"xp": xp_formula(message_text), "level": 0, "version": version}}
+                data[guild_id_str] = {user_id_str:{"version": version, "xp": xp_formula(message_text), "level": 0}}
 
 
             level = data[guild_id_str][user_id_str]["level"]
@@ -252,7 +253,7 @@ async def self(interaction: discord.Interaction):
         guild_id = str(interaction.guild.id)
         user_avatar = interaction.user.avatar
         # print(type(interaction.user.avatar))
-        file_name = f"{guild_id}.png"
+        file_name = f"{guild_id}_{user_name}.png"
         create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
         await interaction.response.send_message(file=discord.File(file_name))
         os.remove(file_name)
@@ -307,7 +308,7 @@ async def self(interaction: discord.Interaction, user: discord.Member):
         guild_id = str(interaction.guild.id)
         user_avatar = user.avatar
         # print(type(interaction.user.avatar))
-        file_name = f"{guild_id}.png"
+        file_name = f"{guild_id}_{user_name}.png"
         create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
         await interaction.response.send_message(file=discord.File(file_name), ephemeral=True)
         os.remove(file_name)
