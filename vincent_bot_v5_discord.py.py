@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.2.0"
+version = "5.2.1"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -28,7 +28,7 @@ with open('settings.json') as file:
 
 # print(data)
 
-test_guild_id = 1013732206096699453
+# test_guild_id = 1048917571270873109
 cooldown_dict = {}
 
 def nround(number: float | int) -> int:
@@ -138,7 +138,7 @@ class aclient(discord.Client):
     async def on_ready(self):
         await self.wait_until_ready()
         if not self.synced:
-            await tree.sync(guild = discord.Object(id=test_guild_id))
+            await tree.sync()
             self.synced = True
         print(f'Logged on as {self.user}!')
 
@@ -251,11 +251,11 @@ tree = app_commands.CommandTree(client=client)
 # async def test(ctx):
 #     await ctx.respond("test")
 
-@tree.command(name="about", description="Shows about page", guild = discord.Object(id=test_guild_id))
+@tree.command(name="about", description="Shows about page")
 async def self(interaction: discord.Interaction):
     await interaction.response.send_message(f"This is the vincent bot, created to VINCENT\n\nVersion: {version}\nGithub: https://github.com/mikeee1/vincent-bot\nReport issues: <https://github.com/mikeee1/vincent-bot/issues>", ephemeral=True)
 
-@tree.command(name="xp", description="Shows the amount of xp you have", guild = discord.Object(id=test_guild_id))
+@tree.command(name="xp", description="Shows the amount of xp you have")
 async def self(interaction: discord.Interaction):
     # print(interaction.guild.id)
     # print(str(interaction.guild.id))
@@ -269,9 +269,7 @@ async def self(interaction: discord.Interaction):
         user_avatar = interaction.user.avatar
         # print(type(interaction.user.avatar))
         file_name = f"{guild_id}.png"
-
         rank = calculate_rank(user_id, guild_id)
-
         create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name, rank=rank)
         await interaction.response.send_message(file=discord.File(file_name))
         # os.remove(file_name)
@@ -281,7 +279,7 @@ async def self(interaction: discord.Interaction):
         print(e)
         await interaction.response.send_message("Something went wrong", ephemeral=True)
 
-@tree.command(name="cooldown", description="cooldown commands", guild = discord.Object(id=test_guild_id))
+@tree.command(name="cooldown", description="cooldown commands")
 # @tree.command.default_permissions()
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.default_permissions(administrator=True)
@@ -304,7 +302,7 @@ async def self(interaction: discord.Interaction, set_get: str, amount: float):
     # if not interaction
     # pass
 
-@tree.command(name="xpget", description="Shows the amount of xp someone has", guild = discord.Object(id=test_guild_id))
+@tree.command(name="xpget", description="Shows the amount of xp someone has")
 async def self(interaction: discord.Interaction, user: discord.Member):
     # print(user)
     split_user = str(user).split("#")
