@@ -72,7 +72,7 @@ def drawProgressBar(d, x, y, w, h, progress, bg="gray", fg="green"):
     return d
 
 
-def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_name, file_name):
+def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_name, file_name, rank):
     if user_avatar == None:
         avatar_number = int(user_name_list[1]) % 5
         avatar_url = f"https://cdn.discordapp.com/embed/avatars/{avatar_number}.png"
@@ -85,6 +85,7 @@ def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_n
     xp_image = Image.new(mode="RGBA", size=(800, 200))
     draw = ImageDraw.Draw(xp_image)
     font_60 = ImageFont.truetype("arial.ttf", size=60)
+    font_50 = ImageFont.truetype("arial.ttf", size=50)
     font_40 = ImageFont.truetype("arial.ttf", size=40)
     font_30 = ImageFont.truetype("arial.ttf", size=30)
     draw.rounded_rectangle(xy=[0,0, 800,200], radius = 20, fill=(0,0,0,255))
@@ -105,8 +106,22 @@ def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_n
         draw.text((705, 80), text=str(data[guild_id][user_id]['level']), fill="gray", font=font_60)
     except KeyError:
         draw.text((705, 80), text="0", fill="gray", font=font_60)
+    if rank is not None:
+        draw.text((680, 20), text="#", fill="gray", font=font_30)
+        draw.text((705, 10), text=str(rank), fill="gray", font=font_50)
     xp_image.save(file_name)
     os.remove(str(user_id)+".png")
+
+def calculate_rank(user_id, guild_id) -> int:
+    rank_list = []
+    for x in data[guild_id].keys():
+        rank_list.append(data[guild_id][x]["xp"])
+    # print(rank_list)
+    rank_list.sort(reverse=True)
+    # print(rank_list)
+    rank = rank_list.index(data[guild_id][user_id]["xp"])+1
+    # print(rank)
+    return rank
 
 
 # guilds = [discord.Object(id=1037308122265563176), discord.Object(id=1013732206096699453)]
@@ -253,9 +268,12 @@ async def self(interaction: discord.Interaction):
         user_avatar = interaction.user.avatar
         # print(type(interaction.user.avatar))
         file_name = f"{guild_id}.png"
-        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
+
+        rank = calculate_rank(user_id, guild_id)
+
+        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name, rank=rank)
         await interaction.response.send_message(file=discord.File(file_name))
-        os.remove(file_name)
+        # os.remove(file_name)
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> has {data[str(interaction.guild.id)][str(interaction.user.id)]['xp']} xp")
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> is level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']}\n{data[str(interaction.guild.id)][str(interaction.user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1}")
     except Exception as e:
@@ -308,7 +326,8 @@ async def self(interaction: discord.Interaction, user: discord.Member):
         user_avatar = user.avatar
         # print(type(interaction.user.avatar))
         file_name = f"{guild_id}.png"
-        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name)
+        rank = calculate_rank(user_id, guild_id)
+        create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name, rank=rank)
         await interaction.response.send_message(file=discord.File(file_name), ephemeral=True)
         os.remove(file_name)
         # await interaction.response.send_message(f"{user} has {data[str(interaction.guild.id)][str(user.id)]['xp']} xp", ephemeral=True)
