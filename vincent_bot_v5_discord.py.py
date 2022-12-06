@@ -28,7 +28,7 @@ with open('settings.json') as file:
 
 # print(data)
 
-test_guild_id = 1048917571270873109
+test_guild_id = 1013732206096699453
 cooldown_dict = {}
 
 def nround(number: float | int) -> int:
@@ -36,7 +36,7 @@ def nround(number: float | int) -> int:
     return int(number + 0.5)
 
 def xp_formula(message_text: str) -> int:
-    return nround(sqrt(0.4*len(message_text)) - 1.45)
+    return nround(sqrt(0.7*len(message_text)) - 1.45)
 
 def level_formula(xp: int) -> int:
     return 0.002 * xp
@@ -52,7 +52,8 @@ def calculate_progress(guild_id: int, user_id: int) -> float:
         current_xp = 0
         current_level = 0
     xp_next_level = level_formula_inverse(current_level+1)
-    xp_fraction = current_xp/xp_next_level
+    xp_current_level = level_formula_inverse(current_level)
+    xp_fraction = (current_xp-xp_current_level)/xp_next_level
     # print(xp_fraction)
     return xp_fraction
 
@@ -227,9 +228,9 @@ class aclient(discord.Client):
                 if user_id_str in data[guild_id_str]:
                     data[guild_id_str][user_id_str]["xp"] += xp_formula(message_text)
                 else:
-                    data[guild_id_str][user_id_str] = {"xp": xp_formula(message_text), "level": 0, "version": version}
+                    data[guild_id_str][user_id_str] = {"version": version, "xp": xp_formula(message_text), "level": 0}
             else:
-                data[guild_id_str] = {user_id_str:{"xp": xp_formula(message_text), "level": 0, "version": version}}
+                data[guild_id_str] = {user_id_str:{"version": version, "xp": xp_formula(message_text), "level": 0}}
 
 
             level = data[guild_id_str][user_id_str]["level"]

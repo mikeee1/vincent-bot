@@ -4,3 +4,5 @@ data.json
 settings.json
 *.png
 *.gif
+
+data.json.old
