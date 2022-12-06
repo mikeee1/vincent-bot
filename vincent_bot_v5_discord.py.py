@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.1.0"
+version = "5.2.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -107,8 +107,8 @@ def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_n
     except KeyError:
         draw.text((705, 80), text="0", fill="gray", font=font_60)
     if rank is not None:
-        draw.text((680, 20), text="#", fill="gray", font=font_30)
-        draw.text((705, 10), text=str(rank), fill="gray", font=font_50)
+        draw.text((685, 20), text="#", fill="gray", font=font_30)
+        draw.text((705, 3), text=str(rank), fill="gray", font=font_50)
     xp_image.save(file_name)
     os.remove(str(user_id)+".png")
 
