@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.2.1"
+version = "5.2.2"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -53,7 +53,8 @@ def calculate_progress(guild_id: int, user_id: int) -> float:
         current_level = 0
     xp_next_level = level_formula_inverse(current_level+1)
     xp_current_level = level_formula_inverse(current_level)
-    xp_fraction = (current_xp-xp_current_level)/xp_next_level
+    # xp_fraction = (current_xp-xp_current_level)/xp_next_level
+    xp_fraction = (xp_next_level - xp_current_level) / (current_xp - xp_current_level)
     # print(xp_fraction)
     return xp_fraction
 
