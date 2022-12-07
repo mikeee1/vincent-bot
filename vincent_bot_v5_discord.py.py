@@ -54,7 +54,7 @@ def calculate_progress(guild_id: int, user_id: int) -> float:
     xp_next_level = level_formula_inverse(current_level+1)
     xp_current_level = level_formula_inverse(current_level)
     # xp_fraction = (current_xp-xp_current_level)/xp_next_level
-    xp_fraction = (xp_next_level - xp_current_level) / (current_xp - xp_current_level)
+    xp_fraction =  (current_xp - xp_current_level) / (xp_next_level - xp_current_level)
     # print(xp_fraction)
     return xp_fraction
 
