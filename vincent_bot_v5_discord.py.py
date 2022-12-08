@@ -11,7 +11,7 @@ import requests
 import logging
 import typing
 
-version = "5.3.0"
+version = "5.3.1"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -319,7 +319,7 @@ async def self(interaction: discord.Interaction, set_get: str, amount: typing.Op
             # print("set")
             await interaction.response.send_message(f"The cooldown in now {settings[str(interaction.guild.id)]['cooldown']} seconds", ephemeral=True)
         else:
-            await interaction.response.send_message("Please enter a amount")
+            await interaction.response.send_message("Please enter a amount", ephemeral=True)
     elif set_get.lower() == "get":
         # print("get")
         await interaction.response.send_message(f"The cooldown is {settings[str(interaction.guild.id)]['cooldown']} seconds", ephemeral=True)
