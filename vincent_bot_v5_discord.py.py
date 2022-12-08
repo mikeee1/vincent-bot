@@ -10,7 +10,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 
-version = "5.2.2"
+version = "5.2.3"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -36,7 +36,7 @@ def nround(number: float | int) -> int:
     return int(number + 0.5)
 
 def xp_formula(message_text: str) -> int:
-    return nround(sqrt(0.7*len(message_text)) - 1.45)
+    return nround(sqrt(0.9*len(message_text)) - 1.45)
 
 def level_formula(xp: int) -> int:
     return 0.002 * xp
