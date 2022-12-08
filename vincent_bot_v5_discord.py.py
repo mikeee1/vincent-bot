@@ -9,11 +9,13 @@ import time
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
+import typing
 
-version = "5.2.3"
+version = "5.3.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+BOT_ADMIN_ID = int(os.getenv('BOT_ADMIN_ID'))
 
 with open('data.json') as file:
     data = json.load(file)
@@ -133,7 +135,8 @@ class aclient(discord.Client):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
-        super().__init__(intents=intents)
+        activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
+        super().__init__(intents=intents, activity = activity)
         self.synced = False
 
     async def on_ready(self):
@@ -141,9 +144,34 @@ class aclient(discord.Client):
         if not self.synced:
             await tree.sync()
             self.synced = True
+        # activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
+        # await client.change_presence(activity = activity)
         print(f'Logged on as {self.user}!')
 
     async def on_message(self, message):
+        message_text = message.content
+        message_text_lower = message_text.lower()
+        if isinstance(message.channel, discord.channel.DMChannel):
+            if message.author.id == BOT_ADMIN_ID:
+                if message_text.startswith("!"):
+                    command_list = message_text[1:].split(" ")
+                    if command_list[0] == "stop" or command_list[0] == "quit":
+                        await message.reply("Shutting down")
+                        quit()
+                    elif command_list[0] == "dump":
+                        if command_list[1] == "data":
+                            if len(command_list) == 2:
+                                await message.reply(json.dumps(data, indent=4))
+                            elif command_list[2] == "raw":
+                                await message.reply(data)
+                        elif command_list[1] == "settings":
+                            if len(command_list) == 2:
+                                await message.reply(json.dumps(settings, indent=4))
+                            elif command_list[2] == "raw":
+                                await message.reply(settings)
+                        
+                    
+            return
         # print(message.content)
         # emoijs_test =  disnake.Guild.emojis
         # print(str(emoijs_test))
@@ -190,8 +218,6 @@ class aclient(discord.Client):
         #     await message.add_reaction(emoji1)
         # elif random_number == 3:
         #     await message.add_reaction(emoji2)
-        message_text = message.content
-        message_text_lower = message_text.lower()
         # print(message_text)
         # if "vincent" in message_text:
         #     print("vincent detected")
@@ -273,7 +299,7 @@ async def self(interaction: discord.Interaction):
         rank = calculate_rank(user_id, guild_id)
         create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name, rank=rank)
         await interaction.response.send_message(file=discord.File(file_name))
-        # os.remove(file_name)
+        os.remove(file_name)
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> has {data[str(interaction.guild.id)][str(interaction.user.id)]['xp']} xp")
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> is level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']}\n{data[str(interaction.guild.id)][str(interaction.user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1}")
     except Exception as e:
@@ -284,14 +310,16 @@ async def self(interaction: discord.Interaction):
 # @tree.command.default_permissions()
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.default_permissions(administrator=True)
-async def self(interaction: discord.Interaction, set_get: str, amount: float):
+async def self(interaction: discord.Interaction, set_get: str, amount: typing.Optional[int]):
     if set_get.lower() == "set":
-        settings[str(interaction.guild.id)]['cooldown'] = amount
-        with open('settings.json', "w") as file:
-            json.dump(settings, file)
-        # print("set")
-        await interaction.response.send_message(f"The cooldown in now {settings[str(interaction.guild.id)]['cooldown']} seconds", ephemeral=True)
-        pass
+        if amount != None:
+            settings[str(interaction.guild.id)]['cooldown'] = amount
+            with open('settings.json', "w") as file:
+                json.dump(settings, file)
+            # print("set")
+            await interaction.response.send_message(f"The cooldown in now {settings[str(interaction.guild.id)]['cooldown']} seconds", ephemeral=True)
+        else:
+            await interaction.response.send_message("Please enter a amount")
     elif set_get.lower() == "get":
         # print("get")
         await interaction.response.send_message(f"The cooldown is {settings[str(interaction.guild.id)]['cooldown']} seconds", ephemeral=True)
