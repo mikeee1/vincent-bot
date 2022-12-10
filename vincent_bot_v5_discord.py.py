@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+from discord.app_commands import Choice
 from dotenv import load_dotenv
 import os
 import random
@@ -10,8 +11,9 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import requests
 import logging
 import typing
+import shutil
 
-version = "5.3.1"
+version = "5.4.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -86,7 +88,7 @@ def create_xp_image(data, user_avatar, user_name_list, user_id, guild_id, user_n
     # print(str(interaction.user.avatar).split("?")[0])
     with open(user_id+".png", "wb") as file:
         file.write(avatar)
-    xp_image = Image.new(mode="RGBA", size=(800, 200))
+    xp_image = Image.new(mode="RGB", size=(800, 200))
     draw = ImageDraw.Draw(xp_image)
     font_60 = ImageFont.truetype("arial.ttf", size=60)
     font_50 = ImageFont.truetype("arial.ttf", size=50)
@@ -121,11 +123,26 @@ def calculate_rank(user_id, guild_id) -> int:
     for x in data[guild_id].keys():
         rank_list.append(data[guild_id][x]["xp"])
     # print(rank_list)
+    rank_list = list(set(rank_list))
     rank_list.sort(reverse=True)
     # print(rank_list)
     rank = rank_list.index(data[guild_id][user_id]["xp"])+1
     # print(rank)
     return rank
+
+def replacer(s, newstring, index, nofail=False):
+    # raise an error if index is outside of the string
+    if not nofail and index not in range(len(s)):
+        raise ValueError("index outside given string")
+
+    # if not erroring, but the index is still not in the correct range..
+    if index < 0:  # add it to the beginning
+        return newstring + s
+    if index > len(s):  # add it to the end
+        return s + newstring
+
+    # insert the new string between "slices" of the original
+    return s[:index] + newstring + s[index + 1:]
 
 
 # guilds = [discord.Object(id=1037308122265563176), discord.Object(id=1013732206096699453)]
@@ -169,6 +186,11 @@ class aclient(discord.Client):
                                 await message.reply(json.dumps(settings, indent=4))
                             elif command_list[2] == "raw":
                                 await message.reply(settings)
+                        elif command_list[1] == "cooldown":
+                            if len(command_list) == 2:
+                                await message.reply(json.dumps(cooldown_dict, indent=4))
+                            elif command_list[2] == "raw":
+                                await message.reply(cooldown_dict)
                         
                     
             return
@@ -200,7 +222,7 @@ class aclient(discord.Client):
         guild_id_str = str(guild_id)
 
         if not guild_id_str in settings:
-            settings[guild_id_str] = {"cooldown": 5}
+            settings[guild_id_str] = {"cooldown": 5.0}
             with open('settings.json', "w") as file:
                 json.dump(settings, file)
 
@@ -310,7 +332,11 @@ async def self(interaction: discord.Interaction):
 # @tree.command.default_permissions()
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.default_permissions(administrator=True)
-async def self(interaction: discord.Interaction, set_get: str, amount: typing.Optional[int]):
+@app_commands.choices(set_get = [
+    Choice(name="set", value="set"),
+    Choice(name="get", value="get")
+])
+async def self(interaction: discord.Interaction, set_get: str, amount: typing.Optional[float]):
     if set_get.lower() == "set":
         if amount != None:
             settings[str(interaction.guild.id)]['cooldown'] = amount
@@ -332,7 +358,7 @@ async def self(interaction: discord.Interaction, set_get: str, amount: typing.Op
     # pass
 
 @tree.command(name="xpget", description="Shows the amount of xp someone has")
-async def self(interaction: discord.Interaction, user: discord.Member):
+async def self(interaction: discord.Interaction, user: discord.Member, show: typing.Optional[bool]):
     # print(user)
     split_user = str(user).split("#")
     # print(f'Variable: {interaction.guild.id}, Type: {type(interaction.guild.id)}')
@@ -356,7 +382,10 @@ async def self(interaction: discord.Interaction, user: discord.Member):
         file_name = f"{guild_id}.png"
         rank = calculate_rank(user_id, guild_id)
         create_xp_image(data=data, user_avatar=user_avatar, user_name_list=user_name_list, user_id=user_id, guild_id=guild_id, user_name=user_name, file_name=file_name, rank=rank)
-        await interaction.response.send_message(file=discord.File(file_name), ephemeral=True)
+        if show:
+            await interaction.response.send_message(file=discord.File(file_name))
+        else:
+            await interaction.response.send_message(file=discord.File(file_name), ephemeral=True)
         os.remove(file_name)
         # await interaction.response.send_message(f"{user} has {data[str(interaction.guild.id)][str(user.id)]['xp']} xp", ephemeral=True)
         # await interaction.response.send_message(f"{user} is level {data[str(interaction.guild.id)][str(user.id)]['level']}\n{data[str(interaction.guild.id)][str(user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(user.id)]['level']+1}", ephemeral=True)
@@ -364,6 +393,97 @@ async def self(interaction: discord.Interaction, user: discord.Member):
         print(e)
         await interaction.response.send_message(f"Something went wrong", ephemeral=True)
 
+
+@tree.command(name="scoreboard", description="Shows the scoreboard")
+async def self(interaction: discord.Interaction, amount: typing.Optional[int], show: typing.Optional[bool]):
+    user_id = str(interaction.user.id)
+    guild_id = str(interaction.guild.id)
+    folder_name = f"{guild_id}_{user_id}"
+    try:
+        if amount is None:
+            amount = 5
+        if amount <= 0:
+            amount = 1
+        os.mkdir(folder_name)
+        data_guild = data[guild_id]
+        scoreboard_list = []
+        xp_list = []
+        for x in data_guild.keys():
+            xp_list.append(data_guild[x]["xp"])
+        # xp_list = list(set(xp_list))
+        xp_list.sort(reverse=True)
+        xp_list = xp_list[:amount]
+        # print(xp_list)
+        for x in data_guild.keys():
+            if data_guild[x]["xp"] in xp_list:
+                scoreboard_list.append([x, data_guild[x]["xp"], calculate_rank(x, guild_id)])
+        scoreboard_list.sort(key=lambda x: x[2])
+        # print(scoreboard_list)
+        for e, x in enumerate(scoreboard_list):
+            user = client.get_user(int(x[0]))
+            user_id = user.id
+            user_avatar = user.avatar
+            user_name = str(user)
+            user_name_list = user_name.split("#")
+            if user_avatar == None:
+                avatar_number = int(user_name_list[1]) % 5
+                avatar_url = f"https://cdn.discordapp.com/embed/avatars/{avatar_number}.png"
+            else:
+                avatar_url = str(user_avatar)
+            avatar = requests.get(avatar_url).content
+            # print(str(interaction.user.avatar).split("?")[0])
+            with open(f"{folder_name}/{user_id}.png", "wb") as file:
+                file.write(avatar)
+            scoreboard_image_temp = Image.new(mode="RGB", size=(800, 200), color=(0,0,0,255))
+            scoreboard_draw = ImageDraw.Draw(scoreboard_image_temp)
+            font_big = ImageFont.truetype("arial.ttf", size=150)
+            font_70 = ImageFont.truetype("arial.ttf", size=70)
+            font_60 = ImageFont.truetype("arial.ttf", size=60)
+            font_50 = ImageFont.truetype("arial.ttf", size=50)
+            font_40 = ImageFont.truetype("arial.ttf", size=40)
+            font_30 = ImageFont.truetype("arial.ttf", size=30)
+            scoreboard_draw.text((50, 20), text=str(x[2]), fill="gray", font=font_big)
+            scoreboard_draw.text((10, 100), text="#", fill="gray", font=font_60)
+            if len(user_name) >= 18:
+                if user_name[18] == " ":
+                    user_name = replacer(user_name, "", 18)
+                user_name = user_name[:18] + "\n" + user_name[18:]
+            scoreboard_draw.text((380, 10), text=user_name, fill="gray", font=font_40)
+            scoreboard_draw.text((380, 110), text=f"{x[1]} XP", fill="gray", font=font_70)
+            avatar_image = Image.open(f"{folder_name}/{user_id}.png")
+            avatar_image = avatar_image.resize(size=(160,160))
+            scoreboard_image_temp.paste(avatar_image, (190,20))
+            scoreboard_image_temp.save(f"{folder_name}/{e}.png")
+            amount_of_images = e+1
+        y1 = 200*amount_of_images
+        scoreboard_image = Image.new(mode="RGB", size=(800, y1), color=(0,0,0,255))
+        scoreboard_draw = ImageDraw.Draw(scoreboard_image)
+        line_with = 5
+        for x in range(amount_of_images):
+            number = x + 1
+            scoreboard_image_temp = Image.open(f"{folder_name}/{x}.png")
+            y = 200 * x
+            scoreboard_image.paste(scoreboard_image_temp, (0,y))
+            # xh = 200 * number
+            yh = 200 * number
+            line_h = [(0, yh), (800, yh)]
+            if number != amount_of_images:
+                scoreboard_draw.line(line_h, fill="gray", width=line_with)
+        line_v = [(160,0), (160,y1)]
+        scoreboard_draw.line(line_v, fill="gray", width=line_with)
+        scoreboard_image.save(f"{folder_name}/final.png")
+        if show:
+            await interaction.response.send_message(file=discord.File(f"{folder_name}/final.png"))
+        else:
+            await interaction.response.send_message(file=discord.File(f"{folder_name}/final.png"), ephemeral=True)
+
+
+        shutil.rmtree(folder_name)
+    except Exception as e:
+        print(e)
+        if os.path.exists(folder_name):
+            shutil.rmtree(folder_name)
+        await interaction.response.send_message(f"Something went wrong", ephemeral=True)
 
 
 @tree.error
