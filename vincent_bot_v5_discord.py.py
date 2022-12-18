@@ -41,7 +41,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.1"
+version = "5.5.2"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -625,7 +625,6 @@ async def check_for_deals():
                         game_end_date_unix = datetime.timestamp(game_end_date_datetime)
                         game_end_date_unix += -time.timezone
                         # print(game_end_date_unix)
-                        channel = client.get_channel(1054007698317901864)
                         embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
                         embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
                         embed.set_thumbnail(url=game_thumbnail_url)
@@ -633,6 +632,7 @@ async def check_for_deals():
                         # await channel.send(f"")
                         for j in settings.keys():
                             if settings[j]["games_notifier"]:
+                                channel = client.get_channel(settings[j]["games_notifier_channel"])
                                 await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
                         free_games["epic"][game_id] = int(time.time())
                         with open('free_games.json', "w") as file:
