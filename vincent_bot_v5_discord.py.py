@@ -21,10 +21,10 @@ log_file_name_debug = "discord_debug.log"
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 # create file handler which logs even debug messages
-fh = logging.FileHandler(log_file_name, mode="w")
+fh = logging.FileHandler(log_file_name, mode="w", encoding='utf-8')
 fh.setLevel(logging.INFO)
 
-fhd = logging.FileHandler(log_file_name_debug, mode="w")
+fhd = logging.FileHandler(log_file_name_debug, mode="w", encoding='utf-8')
 fhd.setLevel(logging.DEBUG)
 
 # create console handler with a higher log level
@@ -41,7 +41,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.0"
+version = "5.5.1"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -184,6 +184,7 @@ class aclient(discord.Client):
         intents.message_content = True
         intents.members = True
         intents.reactions = True
+        intents.guild_reactions = True
         activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
         super().__init__(intents=intents, activity = activity)
         self.synced = False
@@ -599,7 +600,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("You don't have the required permission(s)", ephemeral=True)
 
-@tasks.loop(seconds = 20)
+@tasks.loop(seconds = 300)
 async def check_for_deals():
     data = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
     data = json.loads(data.content)
