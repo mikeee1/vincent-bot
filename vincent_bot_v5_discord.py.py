@@ -196,7 +196,8 @@ class aclient(discord.Client):
             self.synced = True
         # activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
         # await client.change_presence(activity = activity)
-        print(f'Logged on as {self.user}!')
+        logging.info(f'Logged on as {self.user}!')
+        # print(f'Logged on as {self.user}!')
         check_for_deals.start()
 
     async def on_message(self, message):
@@ -400,7 +401,8 @@ async def self(interaction: discord.Interaction):
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> has {data[str(interaction.guild.id)][str(interaction.user.id)]['xp']} xp")
         # await interaction.response.send_message(f"<@{str(interaction.user.id)}> is level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']}\n{data[str(interaction.guild.id)][str(interaction.user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(interaction.user.id)]['level']+1}")
     except Exception as e:
-        print(e)
+        # print(e)
+        logging.error(e)
         await interaction.response.send_message("Something went wrong", ephemeral=True)
 
 @tree.command(name="cooldown", description="cooldown commands")
@@ -465,7 +467,8 @@ async def self(interaction: discord.Interaction, user: discord.Member, show: typ
         # await interaction.response.send_message(f"{user} has {data[str(interaction.guild.id)][str(user.id)]['xp']} xp", ephemeral=True)
         # await interaction.response.send_message(f"{user} is level {data[str(interaction.guild.id)][str(user.id)]['level']}\n{data[str(interaction.guild.id)][str(user.id)]['xp']}/{level_formula_inverse(data[str(interaction.guild.id)][str(user.id)]['level']+1)} to level {data[str(interaction.guild.id)][str(user.id)]['level']+1}", ephemeral=True)
     except Exception as e:
-        print(e)
+        # print(e)
+        logging.error(e)
         await interaction.response.send_message(f"Something went wrong", ephemeral=True)
 
 
@@ -555,7 +558,8 @@ async def self(interaction: discord.Interaction, amount: typing.Optional[int], s
 
         shutil.rmtree(folder_name)
     except Exception as e:
-        print(e)
+        # print(e)
+        logging.error(e)
         if os.path.exists(folder_name):
             shutil.rmtree(folder_name)
         await interaction.response.send_message(f"Something went wrong", ephemeral=True)
@@ -602,6 +606,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 
 @tasks.loop(seconds = 300)
 async def check_for_deals():
+    logging.info("Checking for new free games")
     data = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
     data = json.loads(data.content)
     data = data["data"]["Catalog"]["searchStore"]["elements"]
