@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.app_commands import Choice
+from discord.ext import tasks
 from dotenv import load_dotenv
 import os
 import random
@@ -12,8 +13,35 @@ import requests
 import logging
 import typing
 import shutil
+from datetime import datetime
 
-version = "5.4.0"
+log_file_name = "discord.log"
+log_file_name_debug = "discord_debug.log"
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler(log_file_name, mode="w")
+fh.setLevel(logging.INFO)
+
+fhd = logging.FileHandler(log_file_name_debug, mode="w")
+fhd.setLevel(logging.DEBUG)
+
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+# create formatter and add it to the handlers
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+fh.setFormatter(formatter)
+fhd.setFormatter(formatter)
+# add the handlers to logger
+logger.addHandler(ch)
+logger.addHandler(fh)
+logger.addHandler(fhd)
+
+
+version = "5.5.0"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -24,6 +52,9 @@ with open('data.json') as file:
 
 with open('settings.json') as file:
     settings = json.load(file)
+
+with open('free_games.json') as file:
+    free_games = json.load(file)
 
 # if len(settings) == 0:
 #     settings["cooldown"] = 5
@@ -152,6 +183,7 @@ class aclient(discord.Client):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
+        intents.reactions = True
         activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
         super().__init__(intents=intents, activity = activity)
         self.synced = False
@@ -164,6 +196,7 @@ class aclient(discord.Client):
         # activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
         # await client.change_presence(activity = activity)
         print(f'Logged on as {self.user}!')
+        check_for_deals.start()
 
     async def on_message(self, message):
         message_text = message.content
@@ -175,6 +208,23 @@ class aclient(discord.Client):
                     if command_list[0] == "stop" or command_list[0] == "quit":
                         await message.reply("Shutting down")
                         quit()
+                    elif command_list[0] == "log":
+                        if len(command_list) == 1:
+                            with open(log_file_name, "r") as file:
+                                log_data = file.read()
+                            if len(log_data) > 2000:
+                                to_much = len(log_data) - 2000
+                                await message.reply(log_data[to_much:])
+                            else:
+                                await message.reply(log_data)
+                        elif command_list[1] == "debug":
+                            with open(log_file_name_debug, "r") as file:
+                                log_data = file.read()
+                            if len(log_data) > 2000:
+                                to_much = len(log_data) - 2000
+                                await message.reply(log_data[to_much:])
+                            else:
+                                await message.reply(log_data)
                     elif command_list[0] == "dump":
                         if command_list[1] == "data":
                             if len(command_list) == 2:
@@ -191,6 +241,11 @@ class aclient(discord.Client):
                                 await message.reply(json.dumps(cooldown_dict, indent=4))
                             elif command_list[2] == "raw":
                                 await message.reply(cooldown_dict)
+                        elif command_list[1] == "free_games":
+                            if len(command_list) == 2:
+                                await message.reply(json.dumps(free_games, indent=4))
+                            elif command_list[2] == "raw":
+                                await message.reply(free_games)
                         
                     
             return
@@ -222,7 +277,7 @@ class aclient(discord.Client):
         guild_id_str = str(guild_id)
 
         if not guild_id_str in settings:
-            settings[guild_id_str] = {"cooldown": 5.0}
+            settings[guild_id_str] = {"cooldown": 5.0, "games_notifier": False}
             with open('settings.json', "w") as file:
                 json.dump(settings, file)
 
@@ -289,6 +344,25 @@ class aclient(discord.Client):
                 await message.reply(f"congrats, <@{user_id_str}> just leveled up", file = discord.File('level_up.gif'))
             with open('data.json', "w") as file:
                 json.dump(data, file)
+
+    async def on_raw_reaction_add(self,payload):
+        guild_id_str = str(payload.guild_id)
+        if settings[guild_id_str]["games_notifier"]:
+            if payload.message_id == settings[guild_id_str]["games_notifier_message"]:
+                if payload.emoji.name == "🆓":
+                    guild = client.get_guild(payload.guild_id)
+                    role = discord.utils.get(guild.roles, id = settings[guild_id_str]["games_notifier_role"])
+                    await payload.member.add_roles(role)
+
+    async def on_raw_reaction_remove(self,payload):
+        guild_id_str = str(payload.guild_id)
+        if settings[guild_id_str]["games_notifier"]:
+            if payload.message_id == settings[guild_id_str]["games_notifier_message"]:
+                if payload.emoji.name == "🆓":
+                    guild = client.get_guild(payload.guild_id)
+                    member = guild.get_member(payload.user_id)
+                    role = discord.utils.get(guild.roles, id = settings[guild_id_str]["games_notifier_role"])
+                    await member.remove_roles(role)
                 
 
 
@@ -486,9 +560,81 @@ async def self(interaction: discord.Interaction, amount: typing.Optional[int], s
         await interaction.response.send_message(f"Something went wrong", ephemeral=True)
 
 
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
+@app_commands.choices(what_to_do = [
+    Choice(name="create", value="create"),
+    Choice(name="remove", value="remove")
+])
+@tree.command(name="games-notifier", description="Free games notifier setup")
+async def self(interaction: discord.Interaction, what_to_do: str, channel: typing.Optional[discord.TextChannel], role: typing.Optional[discord.Role]):
+    if what_to_do == "create":
+        if channel != None and role != None:
+            message = await channel.send("React with the 🆓 emoij to get notifications for free games")
+            await message.pin()
+            await message.add_reaction("🆓")
+            guild_id_str = str(message.guild.id)
+            settings[guild_id_str]["games_notifier"] = True
+            settings[guild_id_str]["games_notifier_message"] = message.id
+            settings[guild_id_str]["games_notifier_role"] = role.id
+            settings[guild_id_str]["games_notifier_channel"] = channel.id
+            with open('settings.json', "w") as file:
+                json.dump(settings, file)
+            await interaction.response.send_message(f"Vincent bot will now use the <#{channel.id}> channel and the <@&{role.id}> role", ephemeral=True)
+    if what_to_do == "remove":
+        guild_id_str = str(message.guild.id)
+        settings[guild_id_str]["games_notifier"] = False
+        await interaction.response.send_message(f"Vincent bot free game notifier has been disabled")
+    # for i in data[guild_id_str].keys():
+    #     data[guild_id_str][i]["games_notifier"] = False
+    # with open('data.json', "w") as file:
+    #     json.dump(data, file)
+
+    # print(channel.id)
+    # print(rol.id)
+
+
 @tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("You don't have the required permission(s)", ephemeral=True)
 
-client.run(TOKEN)
+@tasks.loop(seconds = 20)
+async def check_for_deals():
+    data = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
+    data = json.loads(data.content)
+    data = data["data"]["Catalog"]["searchStore"]["elements"]
+    if len(data) > 0:
+        for i in data:
+            if i["promotions"]["promotionalOffers"] is not None:
+                if len(i["promotions"]["promotionalOffers"]) > 0:
+                    store_name = "Epic Games"
+                    store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
+                    game_id = i["id"]
+                    game_name = i["title"]
+                    game_description = i["description"]
+                    if game_id not in free_games["epic"]:
+                        game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
+                        game_url = f"https://epicgames.com/store/product/{i['productSlug']}"
+                        for j in i["keyImages"]:
+                            if j["type"] == "DieselStoreFrontWide":
+                                game_thumbnail_url = j["url"]
+                                break
+                        game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+                        game_end_date_unix = datetime.timestamp(game_end_date_datetime)
+                        game_end_date_unix += -time.timezone
+                        # print(game_end_date_unix)
+                        channel = client.get_channel(1054007698317901864)
+                        embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
+                        embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
+                        embed.set_thumbnail(url=game_thumbnail_url)
+                        embed.add_field(name="Free until", value=f"<t:{int(game_end_date_unix)}>", inline=True)
+                        # await channel.send(f"")
+                        for j in settings.keys():
+                            if settings[j]["games_notifier"]:
+                                await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
+                        free_games["epic"][game_id] = int(time.time())
+                        with open('free_games.json', "w") as file:
+                            json.dump(free_games, file)
+
+client.run(TOKEN, root_logger=logger, log_handler=None)

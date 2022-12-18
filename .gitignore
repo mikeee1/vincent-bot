@@ -2,6 +2,7 @@
 *.log
 data.json
 settings.json
+free_games.json
 *.png
 *.gif
 
