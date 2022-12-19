@@ -16,7 +16,7 @@ import shutil
 from datetime import datetime
 
 
-MAX_FILE_SIZE = 8,000,000
+MAX_FILE_SIZE = 8000000
 log_file_name = "discord.log"
 log_file_name_debug = "discord_debug.log"
 
@@ -43,7 +43,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.2"
+version = "5.5.3"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -221,7 +221,8 @@ class aclient(discord.Client):
                             #     await message.reply(log_data[to_much:])
                             # else:
                             #     await message.reply(log_data)
-                            if os.path.getsize(log_file_name) < MAX_FILE_SIZE:
+                            # print(f'Variable: {os.path.getsize(log_file_name)}, Type: {type(os.path.getsize(log_file_name))}')
+                            if  os.path.getsize(log_file_name) < MAX_FILE_SIZE:
                                 await message.reply(file=discord.File(log_file_name))
                             else:
                                 await message.relpy("File to big")
@@ -652,8 +653,8 @@ async def check_for_deals():
                         free_games["epic"][game_id] = int(time.time())
                         with open('free_games.json', "w") as file:
                             json.dump(free_games, file)
-    for i in free_games.keys():
-        for j in free_games[i].keys():
+    for i in list(free_games):
+        for j in list(free_games[i]):
             if free_games[i][j] + 1209600 > int(time.time()):
                 del free_games[i][j]
 
