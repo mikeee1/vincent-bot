@@ -43,7 +43,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.3"
+version = "5.5.4"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -226,18 +226,36 @@ class aclient(discord.Client):
                                 await message.reply(file=discord.File(log_file_name))
                             else:
                                 await message.relpy("File to big")
-                        elif command_list[1] == "debug":
-                            # with open(log_file_name_debug, "r") as file:
-                            #     log_data = file.read()
-                            # if len(log_data) > 2000:
-                            #     to_much = len(log_data) - 2000
-                            #     await message.reply(log_data[to_much:])
-                            # else:
-                            #     await message.reply(log_data)
-                            if os.path.getsize(log_file_name_debug) < MAX_FILE_SIZE:
-                                await message.reply(file=discord.File(log_file_name_debug))
-                            else:
-                                await message.relpy("File to big")
+                        elif len(command_list) == 2:
+                            if command_list[1] == "debug":
+                                # with open(log_file_name_debug, "r") as file:
+                                #     log_data = file.read()
+                                # if len(log_data) > 2000:
+                                #     to_much = len(log_data) - 2000
+                                #     await message.reply(log_data[to_much:])
+                                # else:
+                                #     await message.reply(log_data)
+                                if os.path.getsize(log_file_name_debug) < MAX_FILE_SIZE:
+                                    await message.reply(file=discord.File(log_file_name_debug))
+                                else:
+                                    await message.relpy("File to big")
+                            elif command_list[1] == "txt":
+                                with open(log_file_name, "r", encoding="utf-8") as file:
+                                    log_data = file.read()
+                                if len(log_data) > 2000:
+                                    to_much = len(log_data) - 2000
+                                    await message.reply(log_data[to_much:])
+                                else:
+                                    await message.reply(log_data)
+                        elif len(command_list) == 3:
+                            if command_list[1] == "debug" and command_list[2] == "txt":
+                                with open(log_file_name_debug, "r", encoding="utf-8") as file:
+                                    log_data = file.read()
+                                if len(log_data) > 2000:
+                                    to_much = len(log_data) - 2000
+                                    await message.reply(log_data[to_much:])
+                                else:
+                                    await message.reply(log_data)
                     elif command_list[0] == "dump":
                         if command_list[1] == "data":
                             if len(command_list) == 2:
@@ -655,7 +673,7 @@ async def check_for_deals():
                             json.dump(free_games, file)
     for i in list(free_games):
         for j in list(free_games[i]):
-            if free_games[i][j] + 1209600 > int(time.time()):
+            if free_games[i][j] + 1209600 < int(time.time()):
                 del free_games[i][j]
 
 client.run(TOKEN, root_logger=logger, log_handler=None)
