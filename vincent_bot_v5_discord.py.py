@@ -15,6 +15,8 @@ import typing
 import shutil
 from datetime import datetime
 
+
+MAX_FILE_SIZE = 8,000,000
 log_file_name = "discord.log"
 log_file_name_debug = "discord_debug.log"
 
@@ -212,21 +214,29 @@ class aclient(discord.Client):
                         quit()
                     elif command_list[0] == "log":
                         if len(command_list) == 1:
-                            with open(log_file_name, "r") as file:
-                                log_data = file.read()
-                            if len(log_data) > 2000:
-                                to_much = len(log_data) - 2000
-                                await message.reply(log_data[to_much:])
+                            # with open(log_file_name, "r") as file:
+                            #     log_data = file.read()
+                            # if len(log_data) > 2000:
+                            #     to_much = len(log_data) - 2000
+                            #     await message.reply(log_data[to_much:])
+                            # else:
+                            #     await message.reply(log_data)
+                            if os.path.getsize(log_file_name) < MAX_FILE_SIZE:
+                                await message.reply(file=discord.File(log_file_name))
                             else:
-                                await message.reply(log_data)
+                                await message.relpy("File to big")
                         elif command_list[1] == "debug":
-                            with open(log_file_name_debug, "r") as file:
-                                log_data = file.read()
-                            if len(log_data) > 2000:
-                                to_much = len(log_data) - 2000
-                                await message.reply(log_data[to_much:])
+                            # with open(log_file_name_debug, "r") as file:
+                            #     log_data = file.read()
+                            # if len(log_data) > 2000:
+                            #     to_much = len(log_data) - 2000
+                            #     await message.reply(log_data[to_much:])
+                            # else:
+                            #     await message.reply(log_data)
+                            if os.path.getsize(log_file_name_debug) < MAX_FILE_SIZE:
+                                await message.reply(file=discord.File(log_file_name_debug))
                             else:
-                                await message.reply(log_data)
+                                await message.relpy("File to big")
                     elif command_list[0] == "dump":
                         if command_list[1] == "data":
                             if len(command_list) == 2:
@@ -642,5 +652,9 @@ async def check_for_deals():
                         free_games["epic"][game_id] = int(time.time())
                         with open('free_games.json', "w") as file:
                             json.dump(free_games, file)
+    for i in free_games.keys():
+        for j in free_games[i].keys():
+            if free_games[i][j] + 1209600 > int(time.time()):
+                del free_games[i][j]
 
 client.run(TOKEN, root_logger=logger, log_handler=None)
