@@ -14,6 +14,7 @@ import logging
 import typing
 import shutil
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 
 MAX_FILE_SIZE = 8000000
@@ -182,12 +183,13 @@ def replacer(s, newstring, index, nofail=False):
 
 class aclient(discord.Client):
     def __init__(self):
+        global activity
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         intents.reactions = True
         intents.guild_reactions = True
-        activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent")
+        activity = discord.Activity(type = discord.ActivityType.watching, name = "out for Vincent", details="Time until refresh")
         super().__init__(intents=intents, activity = activity)
         self.synced = False
 
@@ -616,9 +618,11 @@ async def self(interaction: discord.Interaction, what_to_do: str, channel: typin
                 json.dump(settings, file)
             await interaction.response.send_message(f"Vincent bot will now use the <#{channel.id}> channel and the <@&{role.id}> role", ephemeral=True)
     if what_to_do == "remove":
-        guild_id_str = str(message.guild.id)
+        guild_id_str = str(interaction.guild.id)
         settings[guild_id_str]["games_notifier"] = False
-        await interaction.response.send_message(f"Vincent bot free game notifier has been disabled")
+        with open('settings.json', "w") as file:
+            json.dump(settings, file)
+        await interaction.response.send_message(f"Vincent bot free game notifier has been disabled", ephemeral=True)
     # for i in data[guild_id_str].keys():
     #     data[guild_id_str][i]["games_notifier"] = False
     # with open('data.json', "w") as file:
@@ -636,11 +640,16 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 @tasks.loop(seconds = 300)
 async def check_for_deals():
     logging.info("Checking for new free games")
-    data = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
-    data = json.loads(data.content)
-    data = data["data"]["Catalog"]["searchStore"]["elements"]
-    if len(data) > 0:
-        for i in data:
+    data_epic = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
+    data_epic = json.loads(data_epic.content)
+    data_epic = data_epic["data"]["Catalog"]["searchStore"]["elements"]
+    data_steam = requests.get("https://store.steampowered.com/search/?maxprice=free&supportedlang=english&ndl=1")
+    data_steam_soup = BeautifulSoup(data_steam.content, "html.parser")
+    
+    # activity.end(datetime.fromtimestamp(time.time()+100))
+    # activity.name("Time until refresh")
+    if len(data_epic) > 0:
+        for i in data_epic:
             if i["promotions"]["promotionalOffers"] is not None:
                 if len(i["promotions"]["promotionalOffers"]) > 0:
                     store_name = "Epic Games"
