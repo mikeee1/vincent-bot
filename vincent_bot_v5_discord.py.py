@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 
 
 MAX_FILE_SIZE = 8000000
+GAME_NOTIFIER_LOOP_SECONDS = 600
 log_file_name = "discord.log"
 log_file_name_debug = "discord_debug.log"
 
@@ -44,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.5"
+version = "5.5.6"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -637,57 +638,64 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("You don't have the required permission(s)", ephemeral=True)
 
-@tasks.loop(seconds = 300)
+@tasks.loop(seconds = GAME_NOTIFIER_LOOP_SECONDS)
 async def check_for_deals():
     try:
         logging.info("Checking for new free games")
         data_epic = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
         data_epic = json.loads(data_epic.content)
-        data_epic = data_epic["data"]["Catalog"]["searchStore"]["elements"]
-        data_steam = requests.get("https://store.steampowered.com/search/?maxprice=free&supportedlang=english&ndl=1")
-        data_steam_soup = BeautifulSoup(data_steam.content, "html.parser")
-        # test = data_steam_soup.find("div", {"id": "search_resultsRows"})
-        # logging.info(test.prettify())
-        
-        # activity.end(datetime.fromtimestamp(time.time()+100))
-        # activity.name("Time until refresh")
-        if len(data_epic) > 0:
-            for i in data_epic:
-                if i["promotions"]["promotionalOffers"] is not None:
-                    if len(i["promotions"]["promotionalOffers"]) > 0:
-                        store_name = "Epic Games"
-                        store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
-                        game_id = i["id"]
-                        game_name = i["title"]
-                        game_description = i["description"]
-                        if game_id not in free_games["epic"]:
-                            game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
-                            game_url = f"https://epicgames.com/store/product/{i['productSlug']}"
-                            for j in i["keyImages"]:
-                                if j["type"] == "DieselStoreFrontWide":
-                                    game_thumbnail_url = j["url"]
-                                    break
-                            game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
-                            game_end_date_unix = datetime.timestamp(game_end_date_datetime)
-                            game_end_date_unix += -time.timezone
-                            # print(game_end_date_unix)
-                            embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
-                            embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
-                            embed.set_thumbnail(url=game_thumbnail_url)
-                            embed.add_field(name="Free until", value=f"<t:{int(game_end_date_unix)}>", inline=True)
-                            # await channel.send(f"")
-                            for j in settings.keys():
-                                if settings[j]["games_notifier"]:
-                                    channel = client.get_channel(settings[j]["games_notifier_channel"])
-                                    await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
-                            free_games["epic"][game_id] = int(time.time())
-                            with open('free_games.json', "w") as file:
-                                json.dump(free_games, file)
-        for i in list(free_games):
-            for j in list(free_games[i]):
-                if free_games[i][j] + 1209600 < int(time.time()):
-                    del free_games[i][j]
+        logging.debug(json.dumps(data_epic, indent=4))
     except Exception as e:
         logging.error(e)
+    else:
+        try:
+            data_epic = data_epic["data"]["Catalog"]["searchStore"]["elements"]
+            # data_steam = requests.get("https://store.steampowered.com/search/?maxprice=free&supportedlang=english&ndl=1")
+            # data_steam_soup = BeautifulSoup(data_steam.content, "html.parser")
+            # test = data_steam_soup.find("div", {"id": "search_resultsRows"})
+            # logging.info(test.prettify())
+            
+            # activity.end(datetime.fromtimestamp(time.time()+100))
+            # activity.name("Time until refresh")
+            if len(data_epic) > 0:
+                for i in data_epic:
+                    if i["promotions"]["promotionalOffers"] is not None:
+                        if len(i["promotions"]["promotionalOffers"]) > 0:
+                            store_name = "Epic Games"
+                            store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
+                            game_id = i["id"]
+                            game_name = i["title"]
+                            game_description = i["description"]
+                            if game_id not in free_games["epic"]:
+                                game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
+                                game_url = f"https://epicgames.com/store/product/{i['productSlug']}"
+                                for j in i["keyImages"]:
+                                    if j["type"] == "DieselStoreFrontWide":
+                                        game_thumbnail_url = j["url"]
+                                        break
+                                game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+                                game_end_date_unix = datetime.timestamp(game_end_date_datetime)
+                                game_end_date_unix += -time.timezone
+                                # print(game_end_date_unix)
+                                embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
+                                embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
+                                embed.set_thumbnail(url=game_thumbnail_url)
+                                embed.add_field(name="Free until", value=f"<t:{int(game_end_date_unix)}>", inline=True)
+                                # await channel.send(f"")
+                                for j in settings.keys():
+                                    if settings[j]["games_notifier"]:
+                                        channel = client.get_channel(settings[j]["games_notifier_channel"])
+                                        await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
+                                free_games["epic"][game_id] = int(time.time())
+                                with open('free_games.json', "w") as file:
+                                    json.dump(free_games, file)
+            for i in list(free_games):
+                for j in list(free_games[i]):
+                    if free_games[i][j] + 1209600 < int(time.time()):
+                        del free_games[i][j]
+        except Exception as e:
+            logging.error(e)
+            logging.error(json.dumps(data_epic, indent=4))
+        
 
 client.run(TOKEN, root_logger=logger, log_handler=None)
