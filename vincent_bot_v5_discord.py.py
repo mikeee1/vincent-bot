@@ -8,13 +8,13 @@ import random
 import json
 from math import sqrt
 import time
-from PIL import Image, ImageFont, ImageDraw, ImageEnhance
+from PIL import Image, ImageFont, ImageDraw
 import requests
 import logging
 import typing
 import shutil
 from datetime import datetime
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 
 MAX_FILE_SIZE = 8000000
@@ -24,28 +24,28 @@ log_file_name_debug = "discord_debug.log"
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-# create file handler which logs even debug messages
+
+
 fh = logging.FileHandler(log_file_name, mode="w", encoding='utf-8')
 fh.setLevel(logging.INFO)
 
 fhd = logging.FileHandler(log_file_name_debug, mode="w", encoding='utf-8')
 fhd.setLevel(logging.DEBUG)
 
-# create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
-# create formatter and add it to the handlers
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s [%(filename)s:%(lineno)d] %(message)s")
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 fhd.setFormatter(formatter)
-# add the handlers to logger
+
 logger.addHandler(ch)
 logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.6"
+version = "5.5.7"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -59,6 +59,9 @@ with open('settings.json') as file:
 
 with open('free_games.json') as file:
     free_games = json.load(file)
+
+if not os.path.exists("free_games.log"):
+    open("free_games.log", "x").close()
 
 # if len(settings) == 0:
 #     settings["cooldown"] = 5
@@ -225,10 +228,11 @@ class aclient(discord.Client):
                             # else:
                             #     await message.reply(log_data)
                             # print(f'Variable: {os.path.getsize(log_file_name)}, Type: {type(os.path.getsize(log_file_name))}')
-                            if  os.path.getsize(log_file_name) < MAX_FILE_SIZE:
+                            file_size = os.path.getsize(log_file_name)
+                            if  file_size < MAX_FILE_SIZE:
                                 await message.reply(file=discord.File(log_file_name))
                             else:
-                                await message.relpy("File to big")
+                                await message.reply(f"File to big: {file_size}")
                         elif len(command_list) == 2:
                             if command_list[1] == "debug":
                                 # with open(log_file_name_debug, "r") as file:
@@ -238,10 +242,11 @@ class aclient(discord.Client):
                                 #     await message.reply(log_data[to_much:])
                                 # else:
                                 #     await message.reply(log_data)
-                                if os.path.getsize(log_file_name_debug) < MAX_FILE_SIZE:
+                                file_size = os.path.getsize(log_file_name_debug)
+                                if file_size < MAX_FILE_SIZE:
                                     await message.reply(file=discord.File(log_file_name_debug))
                                 else:
-                                    await message.relpy("File to big")
+                                    await message.reply(f"File to big: {file_size}")
                             elif command_list[1] == "txt":
                                 with open(log_file_name, "r", encoding="utf-8") as file:
                                     log_data = file.read()
@@ -644,7 +649,9 @@ async def check_for_deals():
         logging.info("Checking for new free games")
         data_epic = requests.get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
         data_epic = json.loads(data_epic.content)
-        logging.debug(json.dumps(data_epic, indent=4))
+        # logging.debug(json.dumps(data_epic, indent=4))
+        with open("free_games.log", "a") as file:
+            file.write(data_epic)
     except Exception as e:
         logging.error(e)
     else:
@@ -659,7 +666,7 @@ async def check_for_deals():
             # activity.name("Time until refresh")
             if len(data_epic) > 0:
                 for i in data_epic:
-                    if i["promotions"]["promotionalOffers"] is not None:
+                    if i["promotions"]["promotionalOffers"] is not None and i["price"]["totalPrice"]["discountPrice"] == 0:
                         if len(i["promotions"]["promotionalOffers"]) > 0:
                             store_name = "Epic Games"
                             store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
@@ -695,7 +702,7 @@ async def check_for_deals():
                         del free_games[i][j]
         except Exception as e:
             logging.error(e)
-            logging.error(json.dumps(data_epic, indent=4))
+            logging.error(data_epic)
         
 
 client.run(TOKEN, root_logger=logger, log_handler=None)
