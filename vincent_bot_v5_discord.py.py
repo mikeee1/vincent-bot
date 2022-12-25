@@ -45,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.8"
+version = "5.5.9"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -651,7 +651,7 @@ async def check_for_deals():
         data_epic = json.loads(data_epic.content)
         # logging.debug(json.dumps(data_epic, indent=4))
         with open("free_games.log", "a") as file:
-            file.write(str(data_epic))
+            file.write(str(data_epic)+"\n")
     except Exception as e:
         logging.error(e)
     else:
