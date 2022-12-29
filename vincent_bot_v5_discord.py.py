@@ -45,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.9"
+version = "5.5.10"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -651,7 +651,7 @@ async def check_for_deals():
         data_epic = json.loads(data_epic.content)
         # logging.debug(json.dumps(data_epic, indent=4))
         with open("free_games.log", "a") as file:
-            file.write(str(data_epic)+"\n")
+            file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} - {json.dumps(data_epic)}")
     except Exception as e:
         logging.error(e)
     else:
@@ -680,6 +680,9 @@ async def check_for_deals():
                                     if j["type"] == "DieselStoreFrontWide":
                                         game_thumbnail_url = j["url"]
                                         break
+                                    elif j["type"] == "OfferImageWide":
+                                        game_thumbnail_url = j["url"]
+                                        break
                                 game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
                                 game_end_date_unix = datetime.timestamp(game_end_date_datetime)
                                 game_end_date_unix += -time.timezone
@@ -702,7 +705,7 @@ async def check_for_deals():
                         del free_games[i][j]
         except Exception as e:
             logging.error(e)
-            logging.error(data_epic)
+            logging.error(print(json.dumps(data_epic, sort_keys=False)))
         
 
 client.run(TOKEN, root_logger=logger, log_handler=None)
