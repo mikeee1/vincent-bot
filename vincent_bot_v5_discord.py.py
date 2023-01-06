@@ -45,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.13"
+version = "5.5.14"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -651,7 +651,7 @@ async def check_for_deals():
         data_epic = json.loads(data_epic.content)
         # logging.debug(json.dumps(data_epic, indent=4))
         with open("free_games.log", "a") as file:
-            file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} - {json.dumps(data_epic)}\n\n")
+            file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} - {json.dumps(data_epic)}\n")
     except Exception as e:
         logging.error(e)
     else:
@@ -666,45 +666,46 @@ async def check_for_deals():
             # activity.name("Time until refresh")
             if len(data_epic) > 0:
                 for i in data_epic:
-                    if i["promotions"]["promotionalOffers"] is not None and i["price"]["totalPrice"]["discountPrice"] == 0:
-                        if len(i["promotions"]["promotionalOffers"]) > 0:
-                            store_name = "Epic Games"
-                            store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
-                            game_id = i["id"]
-                            game_name = i["title"]
-                            game_description = i["description"]
-                            if game_id not in free_games["epic"]:
-                                game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
-                                url_slug = i['productSlug'] if i['productSlug'] is not None else i['urlSlug']
-                                game_url = f"https://epicgames.com/store/product/{url_slug}"
-                                for j in i["keyImages"]:
-                                    if j["type"] == "DieselStoreFrontWide":
-                                        game_thumbnail_url = j["url"]
-                                        break
-                                    elif j["type"] == "OfferImageWide":
-                                        game_thumbnail_url = j["url"]
-                                        break
-                                else:
+                    if i["promotions"] is not None:
+                        if i["promotions"]["promotionalOffers"] is not None and i["price"]["totalPrice"]["discountPrice"] == 0:
+                            if len(i["promotions"]["promotionalOffers"]) > 0:
+                                store_name = "Epic Games"
+                                store_icon_url = "https://static-00.iconduck.com/assets.00/epic-games-icon-512x512-7qpmojcd.png"
+                                game_id = i["id"]
+                                game_name = i["title"]
+                                logging.info(game_name)
+                                game_description = i["description"]
+                                if game_id not in free_games["epic"]:
+                                    game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
+                                    game_url = f"https://epicgames.com/store/product/{i['productSlug'] if i['productSlug'] != 'None' else i['urlSlug']}"
                                     for j in i["keyImages"]:
-                                        if "wide" in j["type"].lower():
+                                        if j["type"] == "DieselStoreFrontWide":
                                             game_thumbnail_url = j["url"]
                                             break
-                                game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
-                                game_end_date_unix = datetime.timestamp(game_end_date_datetime)
-                                game_end_date_unix += -time.timezone
-                                # print(game_end_date_unix)
-                                embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
-                                embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
-                                embed.set_thumbnail(url=game_thumbnail_url)
-                                embed.add_field(name="Free until", value=f"<t:{int(game_end_date_unix)}>", inline=True)
-                                # await channel.send(f"")
-                                for j in settings.keys():
-                                    if settings[j]["games_notifier"]:
-                                        channel = client.get_channel(settings[j]["games_notifier_channel"])
-                                        await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
-                                free_games["epic"][game_id] = int(time.time())
-                                with open('free_games.json', "w") as file:
-                                    json.dump(free_games, file)
+                                        elif j["type"] == "OfferImageWide":
+                                            game_thumbnail_url = j["url"]
+                                            break
+                                    else:
+                                        for j in i["keyImages"]:
+                                            if "wide" in j["type"].lower():
+                                                game_thumbnail_url = j["url"]
+                                                break
+                                    game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+                                    game_end_date_unix = datetime.timestamp(game_end_date_datetime)
+                                    game_end_date_unix += -time.timezone
+                                    # print(game_end_date_unix)
+                                    embed=discord.Embed(title=f"{game_name} is free on {store_name}", url=game_url, description=f"{game_description}")
+                                    embed.set_author(name=f"{store_name}", icon_url=store_icon_url)
+                                    embed.set_thumbnail(url=game_thumbnail_url)
+                                    embed.add_field(name="Free until", value=f"<t:{int(game_end_date_unix)}>", inline=True)
+                                    # await channel.send(f"")
+                                    for j in settings.keys():
+                                        if settings[j]["games_notifier"]:
+                                            channel = client.get_channel(settings[j]["games_notifier_channel"])
+                                            await channel.send(f"<@&{settings[j]['games_notifier_role']}>", embed=embed)
+                                    free_games["epic"][game_id] = int(time.time())
+                                    with open('free_games.json', "w") as file:
+                                        json.dump(free_games, file)
             for i in list(free_games):
                 for j in list(free_games[i]):
                     if free_games[i][j] + 1209600 < int(time.time()):
