@@ -45,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.10"
+version = "5.5.11"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -651,7 +651,7 @@ async def check_for_deals():
         data_epic = json.loads(data_epic.content)
         # logging.debug(json.dumps(data_epic, indent=4))
         with open("free_games.log", "a") as file:
-            file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} - {json.dumps(data_epic)}")
+            file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} - {json.dumps(data_epic)}\n\n")
     except Exception as e:
         logging.error(e)
     else:
@@ -683,6 +683,11 @@ async def check_for_deals():
                                     elif j["type"] == "OfferImageWide":
                                         game_thumbnail_url = j["url"]
                                         break
+                                else:
+                                    for j in i["keyImages"]:
+                                        if "wide" in j["type"].lower():
+                                            game_thumbnail_url = j["url"]
+                                            break
                                 game_end_date_datetime = datetime.strptime(game_end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
                                 game_end_date_unix = datetime.timestamp(game_end_date_datetime)
                                 game_end_date_unix += -time.timezone
