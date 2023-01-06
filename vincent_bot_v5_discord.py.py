@@ -45,7 +45,7 @@ logger.addHandler(fh)
 logger.addHandler(fhd)
 
 
-version = "5.5.12"
+version = "5.5.13"
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -675,7 +675,8 @@ async def check_for_deals():
                             game_description = i["description"]
                             if game_id not in free_games["epic"]:
                                 game_end_date = i["promotions"]["promotionalOffers"][0]["promotionalOffers"][0]["endDate"]
-                                game_url = f"https://epicgames.com/store/product/{i['productSlug'] if i['productSlug'] is not None else i['urlSlug']}"
+                                url_slug = i['productSlug'] if i['productSlug'] is not None else i['urlSlug']
+                                game_url = f"https://epicgames.com/store/product/{url_slug}"
                                 for j in i["keyImages"]:
                                     if j["type"] == "DieselStoreFrontWide":
                                         game_thumbnail_url = j["url"]
